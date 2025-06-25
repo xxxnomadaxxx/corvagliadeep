@@ -5,13 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>WebAR Corvaglia</title>
+    
+    <!-- Usar versiones específicas y estables -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar-nft.min.js"></script>
+    
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            -webkit-tap-highlight-color: transparent;
         }
         
         .arjs-loader {
@@ -20,7 +25,7 @@
             position: fixed;
             top: 0;
             left: 0;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.9);
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -36,39 +41,51 @@
             margin-bottom: 20px;
             font-size: 18px;
             max-width: 80%;
+            line-height: 1.5;
         }
         
         .start-button {
-            padding: 12px 24px;
+            padding: 15px 30px;
             background: #4CAF50;
             color: white;
             border: none;
             border-radius: 30px;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-weight: bold;
+            transition: transform 0.2s, background 0.3s;
         }
         
-        .start-button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
+        .start-button:active {
+            transform: scale(0.95);
         }
         
         .error-message {
             color: #ff6b6b;
-            margin-top: 15px;
+            margin-top: 20px;
+            font-size: 16px;
             display: none;
+            max-width: 80%;
         }
         
         .ios-warning {
             color: #FFD700;
             margin-top: 15px;
             font-size: 14px;
+            font-style: italic;
         }
         
-        a-scene {
+        .retry-section {
             display: none;
+            margin-top: 20px;
+        }
+        
+        .support-link {
+            color: #64B5F6;
+            text-decoration: underline;
+            margin-top: 10px;
+            display: block;
         }
     </style>
 </head>
@@ -78,17 +95,30 @@
             <p>🔄 Experiencia de Realidad Aumentada</p>
             <p>Por favor, apunta tu cámara al marcador "Corvaglia"</p>
         </div>
+        
         <button class="start-button" id="startButton">INICIAR EXPERIENCIA</button>
+        
         <div class="ios-warning" id="iosWarning">
             En iOS: Mantén presionado el botón y selecciona "Reproducir"
         </div>
+        
         <div class="error-message" id="errorMessage"></div>
+        
+        <div class="retry-section" id="retrySection">
+            <button class="start-button" id="retryButton" style="background: #2196F3;">REINTENTAR</button>
+            <p style="margin-top: 10px; font-size: 14px;">Si el problema persiste, prueba:</p>
+            <ul style="text-align: left; font-size: 14px; max-width: 80%; margin: 10px auto;">
+                <li>Recargar la página</li>
+                <li>Actualizar Safari</li>
+                <li>Usar otro navegador (Chrome)</li>
+            </ul>
+        </div>
     </div>
 
     <a-scene 
         vr-mode-ui="enabled: false"
-        renderer="logarithmicDepthBuffer: true; precision: medium;"
-        arjs="trackingMethod: best; debugUIEnabled: false; sourceType: webcam;"
+        renderer="logarithmicDepthBuffer: true; precision: low; antialias: false;"
+        arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best; patternRatio: 0.5;"
     >
         <a-nft 
             id="corvaglia-marker"
@@ -118,109 +148,181 @@
     </a-scene>
 
     <script>
-        // Elementos DOM
+        // ===== Elementos DOM =====
         const loader = document.querySelector('.arjs-loader');
         const scene = document.querySelector('a-scene');
         const videoElement = document.querySelector('#ar-video');
         const startButton = document.querySelector('#startButton');
         const errorMessage = document.querySelector('#errorMessage');
         const iosWarning = document.querySelector('#iosWarning');
+        const retrySection = document.querySelector('#retrySection');
+        const retryButton = document.querySelector('#retryButton');
+        
+        // Ocultar la escena inicialmente
+        scene.style.display = 'none';
         
         // Detectar iOS
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        
-        // Mostrar advertencia para iOS
         if (isIOS) {
             iosWarning.style.display = 'block';
         } else {
             iosWarning.style.display = 'none';
         }
         
-        // Estado de la experiencia
-        let sceneInitialized = false;
-        let markerFound = false;
+        // ===== Configuración de rendimiento para iOS =====
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        // 1. Iniciar experiencia con interacción del usuario
-        startButton.addEventListener('click', async () => {
+        if (isMobile) {
+            // Reducir calidad para mejorar rendimiento en móviles
+            scene.setAttribute('renderer', 'precision', 'low');
+            scene.setAttribute('renderer', 'antialias', 'false');
+        }
+        
+        // ===== Manejo del botón INICIAR =====
+        startButton.addEventListener('click', handleStartButtonClick, {once: true});
+        retryButton.addEventListener('click', handleRetry);
+        
+        function handleStartButtonClick() {
+            startButton.disabled = true;
+            startButton.textContent = 'CARGANDO...';
+            
+            // Paso 1: Verificar soporte de WebGL
+            if (!detectWebGL()) {
+                showError('Tu dispositivo no soporta WebGL. Prueba con otro dispositivo o navegador.');
+                showRetrySection();
+                return;
+            }
+            
+            // Paso 2: Solicitar permisos de cámara
+            requestCameraPermission();
+        }
+        
+        function handleRetry() {
+            retrySection.style.display = 'none';
+            errorMessage.style.display = 'none';
+            startButton.disabled = false;
+            startButton.textContent = 'INICIAR EXPERIENCIA';
+        }
+        
+        // ===== Funciones principales =====
+        function detectWebGL() {
             try {
-                // Iniciar escena AR
-                if (!sceneInitialized) {
-                    await initializeARScene();
-                    sceneInitialized = true;
+                const canvas = document.createElement('canvas');
+                return !!(
+                    window.WebGLRenderingContext &&
+                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+                );
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        function requestCameraPermission() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    // Cerrar stream inmediatamente (solo necesitamos el permiso)
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Iniciar experiencia AR
+                    initARExperience();
+                })
+                .catch(err => {
+                    console.error('Error al acceder a la cámara:', err);
+                    showError('Se requiere acceso a la cámara. Por favor permite los permisos.');
+                    showRetrySection();
+                });
+        }
+        
+        function initARExperience() {
+            // Mostrar la escena
+            scene.style.display = 'block';
+            
+            // Esperar a que la escena esté cargada
+            scene.addEventListener('loaded', () => {
+                console.log('Escena AR cargada');
+                
+                // Verificar si se inicializó WebGL correctamente
+                const canvas = scene.canvas;
+                if (!canvas) {
+                    showError('No se pudo inicializar el canvas WebGL. Intenta recargar la página.');
+                    showRetrySection();
+                    return;
                 }
                 
-                // Reproducir video
-                await playVideo();
+                // Configurar eventos del marcador
+                scene.addEventListener('markerFound', () => {
+                    console.log('Marcador detectado!');
+                    loader.style.display = 'none';
+                    playVideo();
+                });
                 
-                // Ocultar loader
-                loader.style.display = 'none';
-                scene.style.display = 'block';
+                scene.addEventListener('markerLost', () => {
+                    console.log('Marcador perdido');
+                    loader.style.display = 'flex';
+                });
                 
-            } catch (error) {
-                showError(`Error: ${error.message}`);
-                console.error('Error inicializando AR:', error);
-            }
-        });
-        
-        // 2. Inicializar escena AR
-        async function initializeARScene() {
-            return new Promise((resolve) => {
-                scene.addEventListener('loaded', () => {
-                    console.log('Escena AR cargada');
-                    
-                    // Configurar eventos de marcador
-                    scene.addEventListener('markerFound', () => {
-                        markerFound = true;
-                        console.log('Marcador detectado');
-                    });
-                    
-                    scene.addEventListener('markerLost', () => {
-                        markerFound = false;
-                        console.log('Marcador perdido');
-                    });
-                    
-                    resolve();
+                // Manejar errores de AR.js
+                scene.addEventListener('arjs-video-error', (err) => {
+                    console.error('Error en AR.js:', err);
+                    showError('Error en el sistema AR: ' + err.detail);
+                    showRetrySection();
                 });
             });
         }
         
-        // 3. Reproducir video
-        async function playVideo() {
-            return new Promise(async (resolve, reject) => {
-                // Esperar a que el video esté listo
-                videoElement.addEventListener('loadeddata', async () => {
-                    try {
-                        // Intentar reproducción
-                        await videoElement.play();
-                        console.log('Video iniciado correctamente');
-                        resolve();
-                    } catch (error) {
-                        reject(new Error('Error al reproducir video: ' + error.message));
-                    }
-                }, { once: true });
-                
-                // Forzar carga si ya está listo
-                if (videoElement.readyState >= 3) {
-                    try {
-                        await videoElement.play();
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                }
-            });
+        function playVideo() {
+            // Intentar reproducir el video
+            videoElement.play()
+                .then(() => {
+                    console.log('Video reproducido correctamente');
+                })
+                .catch(err => {
+                    console.error('Error al reproducir video:', err);
+                    
+                    // Solución manual para iOS
+                    const playBtn = document.createElement('button');
+                    playBtn.textContent = 'TOCA PARA REPRODUCIR VIDEO';
+                    playBtn.className = 'start-button';
+                    playBtn.style.background = '#FF9800';
+                    playBtn.style.marginTop = '20px';
+                    
+                    playBtn.addEventListener('click', () => {
+                        videoElement.play();
+                        playBtn.remove();
+                    });
+                    
+                    loader.appendChild(playBtn);
+                });
         }
         
-        // 4. Manejar errores
+        // ===== Manejo de errores =====
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
-            startButton.textContent = 'REINTENTAR';
-            startButton.style.background = '#f44336';
         }
         
-        // 5. Manejar cambios de orientación
+        function showRetrySection() {
+            retrySection.style.display = 'block';
+            startButton.style.display = 'none';
+        }
+        
+        // ===== Solución para problemas de memoria en iOS =====
+        let isReloading = false;
+        
+        window.addEventListener('beforeunload', () => {
+            if (!isReloading) {
+                // Liberar recursos de WebGL
+                if (scene.renderer) {
+                    scene.renderer.dispose();
+                }
+                
+                // Eliminar la escena completamente
+                scene.parentNode.removeChild(scene);
+            }
+        });
+        
         window.addEventListener('orientationchange', () => {
+            isReloading = true;
             window.location.reload();
         });
     </script>
