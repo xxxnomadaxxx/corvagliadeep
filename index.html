@@ -6,7 +6,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>WebAR Corvaglia</title>
     
-    <!-- Favicon para evitar error 404 -->
     <link rel="icon" href="data:,"> <!-- Favicon vacío -->
     
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
@@ -17,7 +16,7 @@
     </style>
 </head>
 <body>
-    <!-- [Mantener misma estructura de loader] -->
+    <!-- [Mantener estructura de loader] -->
 
     <div id="ar-scene-container">
         <a-scene 
@@ -29,7 +28,7 @@
             <a-nft 
                 id="corvaglia-marker"
                 type="nft" 
-                url="./assets/corvaglia" <!-- Ruta relativa corregida -->
+                url="https://xxxnomadaxxx.github.io/corvagliadeep/assets/corvaglia" <!-- Ruta absoluta -->
                 smooth="true"
                 smoothCount="10"
                 smoothTolerance="0.01"
@@ -37,7 +36,7 @@
             >
                 <a-video
                     id="ar-video"
-                    src="./assets/video1.mp4" <!-- Ruta relativa corregida -->
+                    src="https://xxxnomadaxxx.github.io/corvagliadeep/assets/video1.mp4" <!-- Ruta absoluta -->
                     position="0 0.5 0"
                     width="1.6"
                     height="0.9"
@@ -69,12 +68,6 @@
         const retrySection = document.querySelector('#retrySection');
         const retryButton = document.querySelector('#retryButton');
         const sceneContainer = document.querySelector('#ar-scene-container');
-        
-        // Variables de estado
-        let scene = null;
-        let videoElement = null;
-        let sceneInitialized = false;
-        let loadTimer = null;
         
         // ===== Inicialización =====
         document.addEventListener('DOMContentLoaded', () => {
@@ -115,15 +108,7 @@
         function requestCameraAccess() {
             console.log("Solicitando acceso a cámara...");
             
-            const constraints = {
-                video: {
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
-            
-            navigator.mediaDevices.getUserMedia(constraints)
+            navigator.mediaDevices.getUserMedia({ video: true })
                 .then(stream => {
                     console.log("Permiso de cámara concedido");
                     stream.getTracks().forEach(track => track.stop());
@@ -141,13 +126,10 @@
             console.log("Creando escena AR");
             sceneContainer.style.display = 'block';
             
-            scene = document.querySelector('#arScene');
-            videoElement = document.querySelector('#ar-video');
-            
-            // Verificar que los recursos NFT existen
+            // Verificar recursos antes de mostrar la escena
             checkNFTResources()
                 .then(() => {
-                    scene.addEventListener('loaded', onSceneLoaded);
+                    // La escena se cargará automáticamente
                 })
                 .catch(err => {
                     clearTimeout(loadTimer);
@@ -160,9 +142,9 @@
         function checkNFTResources() {
             return new Promise((resolve, reject) => {
                 const resources = [
-                    './assets/corvaglia.fset',
-                    './assets/corvaglia.fset3',
-                    './assets/corvaglia.iset'
+                    'https://xxxnomadaxxx.github.io/corvagliadeep/assets/corvaglia.fset',
+                    'https://xxxnomadaxxx.github.io/corvagliadeep/assets/corvaglia.fset3',
+                    'https://xxxnomadaxxx.github.io/corvagliadeep/assets/corvaglia.iset'
                 ];
                 
                 let loadedCount = 0;
@@ -171,6 +153,7 @@
                     fetch(url)
                         .then(response => {
                             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                            console.log(`Recurso cargado: ${url}`);
                             loadedCount++;
                             if (loadedCount === resources.length) resolve();
                         })
@@ -182,61 +165,6 @@
             });
         }
         
-        function onSceneLoaded() {
-            console.log("Escena AR cargada");
-            clearTimeout(loadTimer);
-            sceneInitialized = true;
-            
-            scene.addEventListener('markerFound', onMarkerFound);
-            scene.addEventListener('markerLost', onMarkerLost);
-            
-            setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-            }, 500);
-        }
-        
-        function onMarkerFound() {
-            console.log("Marcador detectado");
-            loader.style.display = 'none';
-            playVideo();
-        }
-        
-        function onMarkerLost() {
-            console.log("Marcador perdido");
-            loader.style.display = 'flex';
-        }
-        
-        function playVideo() {
-            console.log("Intentando reproducir video");
-            
-            // Disparar evento táctil para cumplir con políticas de Safari
-            document.dispatchEvent(new Event('touchend'));
-            
-            setTimeout(() => {
-                videoElement.play()
-                    .then(() => console.log("Video iniciado correctamente"))
-                    .catch(err => {
-                        console.error("Error al reproducir video:", err);
-                        createManualPlayButton();
-                    });
-            }, 100);
-        }
-        
-        function createManualPlayButton() {
-            const playBtn = document.createElement('button');
-            playBtn.className = 'start-button';
-            playBtn.textContent = 'TOCA PARA REPRODUCIR VIDEO';
-            playBtn.style.background = '#FF9800';
-            playBtn.style.marginTop = '20px';
-            
-            playBtn.addEventListener('click', () => {
-                videoElement.play();
-                playBtn.remove();
-            });
-            
-            loader.appendChild(playBtn);
-        }
-        
         function resetExperience() {
             console.log("Reiniciando experiencia");
             loader.style.display = 'flex';
@@ -245,12 +173,6 @@
             startButton.disabled = false;
             startButton.textContent = 'INICIAR EXPERIENCIA';
             startButton.style.display = 'block';
-            
-            if (sceneInitialized) {
-                sceneContainer.style.display = 'none';
-                sceneContainer.innerHTML = document.querySelector('#ar-scene-container').innerHTML;
-                sceneInitialized = false;
-            }
         }
         
         function checkWebGLSupport() {
@@ -281,6 +203,7 @@
             if (event.message.includes('Access-Control-Allow-Origin') || 
                 event.message.includes('dpdb.json')) {
                 event.preventDefault();
+                console.warn("Error de CORS ignorado");
             }
         });
     </script>
