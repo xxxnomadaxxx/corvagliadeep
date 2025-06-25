@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR | Fábrica de Tapas</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a4a 0%, #2c3e50 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Encabezado con estilo industrial */
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ff9d00;
+            z-index: 100;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-icon {
+            font-size: 28px;
+            margin-right: 10px;
+            color: #ff9d00;
+        }
+        
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .logo-text span {
+            color: #ff9d00;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid #ff9d00;
+            padding: 8px 15px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-btn:hover {
+            background: #ff9d00;
+            color: #000;
+        }
+        
+        /* Contenido principal */
+        .main-content {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        .info-panel {
+            width: 350px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid #394a6d;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .panel-title {
+            font-size: 22px;
+            margin-bottom: 20px;
+            color: #ff9d00;
+            text-align: center;
+            border-bottom: 2px solid #394a6d;
+            padding-bottom: 10px;
+        }
+        
+        .instructions {
+            margin-bottom: 25px;
+        }
+        
+        .instruction-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 157, 0, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #ff9d00;
+        }
+        
+        .instruction-number {
+            background: #ff9d00;
+            color: #000;
+            font-weight: bold;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .machine-list {
+            list-style: none;
+        }
+        
+        .machine-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background: rgba(57, 74, 109, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .machine-item:hover {
+            background: rgba(255, 157, 0, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .machine-icon {
+            font-size: 20px;
+            margin-right: 10px;
+            color: #ff9d00;
+        }
+        
+        /* Área AR */
+        .ar-container {
+            flex: 1;
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            background: #000;
+        }
+        
+        #ar-scene {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .ar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+        
+        .ar-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #ff9d00;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .ar-title {
+            font-size: 32px;
+            margin-bottom: 15px;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .ar-subtitle {
+            font-size: 18px;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 80%;
+            opacity: 0.8;
+        }
+        
+        .start-btn {
+            background: linear-gradient(to right, #ff9d00, #ff6a00);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(255, 157, 0, 0.4);
+        }
+        
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 157, 0, 0.6);
+        }
+        
+        .marker-preview {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .marker {
+            width: 80px;
+            height: 80px;
+            background: #1a2a4a;
+            border: 2px solid #ff9d00;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+        
+        .marker-icon {
+            font-size: 24px;
+            color: #ff9d00;
+        }
+        
+        .marker-text {
+            font-size: 10px;
+            text-align: center;
+            margin-top: 5px;
+        }
+        
+        /* Footer */
+        .footer {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 14px;
+            border-top: 2px solid #394a6d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .social-links {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .social-link {
+            color: #ff9d00;
+            text-decoration: none;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .social-link:hover {
+            color: #fff;
+        }
+        
+        /* Responsividad */
+        @media (max-width: 900px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .info-panel {
+                width: 100%;
+            }
+            
+            .ar-container {
+                height: 60vh;
+            }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">⚙️</div>
+                <div class="logo-text">Fábrica <span>AR</span></div>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn">Inicio</button>
+                <button class="nav-btn">Máquinas</button>
+                <button class="nav-btn">Contacto</button>
+            </nav>
+        </header>
+        
+        <main class="main-content">
+            <div class="info-panel">
+                <h2 class="panel-title">Experiencia WebAR</h2>
+                
+                <div class="instructions">
+                    <h3>Instrucciones:</h3>
+                    <div class="instruction-item">
+                        <div class="instruction-number">1</div>
+                        <p>Imprime las marcas de activación o ábrelas en otro dispositivo</p>
+                    </div>
+                    <div class="instruction-item">
+                        <div class="instruction-number">2</div>
+                        <p>Haz clic en "Iniciar AR" y permite el acceso a la cámara</p>
+                    </div>
+                    <div class="instruction-item">
+                        <div class="instruction-number">3</div>
+                        <p>Enfoca la cámara hacia las marcas para activar los videos</p>
+                    </div>
+                </div>
+                
+                <div class="machines">
+                    <h3>Máquinas disponibles:</h3>
+                    <ul class="machine-list">
+                        <li class="machine-item">
+                            <div class="machine-icon">⏱️</div>
+                            <div>Máquina de Moldeo</div>
+                        </li>
+                        <li class="machine-item">
+                            <div class="machine-icon">🔧</div>
+                            <div>Prensa Hidráulica</div>
+                        </li>
+                        <li class="machine-item">
+                            <div class="machine-icon">📦</div>
+                            <div>Sistema de Embalaje</div>
+                        </li>
+                        <li class="machine-item">
+                            <div class="machine-icon">🔩</div>
+                            <div>Línea de Ensamblaje</div>
+                        </li>
+                        <li class="machine-item">
+                            <div class="machine-icon">📊</div>
+                            <div>Control de Calidad</div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="ar-container">
+                <a-scene embedded arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;" id="ar-scene">
+                    <!-- Marcadores de realidad aumentada -->
+                    <a-marker type="pattern" preset="hiro">
+                        <a-video src="https://cdn.aframe.io/test-materials/assets/360-video-boom-box.mp4" width="1.6" height="0.9" position="0 0.5 0" rotation="-90 0 0"></a-video>
+                    </a-marker>
+                    
+                    <a-marker type="pattern" url="https://raw.githubusercontent.com/nicolocarpignoli/nicolocarpignoli.github.io/master/ar-playground/markers/kanji-marker.patt">
+                        <a-video src="https://cdn.aframe.io/test-materials/assets/360-video-boom-box.mp4" width="1.6" height="0.9" position="0 0.5 0" rotation="-90 0 0"></a-video>
+                    </a-marker>
+                    
+                    <a-entity camera></a-entity>
+                </a-scene>
+                
+                <div class="ar-overlay" id="ar-overlay">
+                    <div class="ar-icon">📱</div>
+                    <h1 class="ar-title">Experiencia WebAR</h1>
+                    <p class="ar-subtitle">Descubre nuestras máquinas en acción con realidad aumentada</p>
+                    <button class="start-btn" id="start-ar">Iniciar AR</button>
+                    
+                    <div class="marker-preview">
+                        <div class="marker">
+                            <div class="marker-icon">1</div>
+                            <div class="marker-text">Moldeo</div>
+                        </div>
+                        <div class="marker">
+                            <div class="marker-icon">2</div>
+                            <div class="marker-text">Prensa</div>
+                        </div>
+                        <div class="marker">
+                            <div class="marker-icon">3</div>
+                            <div class="marker-text">Embalaje</div>
+                        </div>
+                        <div class="marker">
+                            <div class="marker-icon">4</div>
+                            <div class="marker-text">Ensamblaje</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <div>© 2023 Fábrica de Tapas - Todos los derechos reservados</div>
+            <div class="social-links">
+                <a href="#" class="social-link">📱</a>
+                <a href="#" class="social-link">💻</a>
+                <a href="#" class="social-link">📸</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startButton = document.getElementById('start-ar');
+            const arOverlay = document.getElementById('ar-overlay');
+            
+            startButton.addEventListener('click', () => {
+                // Simulamos la activación de la cámara
+                arOverlay.classList.add('hidden');
+                
+                // Aquí iría el código para activar la cámara en producción
+                // navigator.mediaDevices.getUserMedia({ video: true })
+                //   .then(stream => {
+                //       arOverlay.classList.add('hidden');
+                //   })
+                //   .catch(err => {
+                //       console.error("Error al acceder a la cámara:", err);
+                //       alert("No se pudo acceder a la cámara. Por favor, asegúrate de conceder los permisos necesarios.");
+                //   });
+            });
+            
+            // Simulamos la detección de marcadores
+            setTimeout(() => {
+                if (!arOverlay.classList.contains('hidden')) {
+                    document.querySelector('.ar-icon').innerHTML = '🎯';
+                    document.querySelector('.ar-title').innerHTML = 'Marcador detectado!';
+                    document.querySelector('.ar-subtitle').innerHTML = 'Máquina de Moldeo - Activando video...';
+                    
+                    setTimeout(() => {
+                        arOverlay.classList.add('hidden');
+                    }, 3000);
+                }
+            }, 10000);
+        });
+    </script>
+</body>
+</html>
