@@ -2,43 +2,96 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR - Corvaglia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>WebAR Corvaglia</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@master/aframe/build/aframe-ar-nft.js"></script>
     <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
         .arjs-loader {
-            height: 100%;
-            width: 100%;
-            position: absolute;
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
             top: 0;
+            left: 0;
             background-color: rgba(0, 0, 0, 0.8);
             z-index: 9999;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
         
-        .arjs-loader div {
-            text-align: center;
-            font-size: 1.25em;
+        .loading-text {
+            margin-bottom: 20px;
+            font-size: 18px;
+            max-width: 80%;
+        }
+        
+        .start-button {
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+        
+        .start-button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .error-message {
+            color: #ff6b6b;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .ios-warning {
+            color: #FFD700;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        a-scene {
+            display: none;
         }
     </style>
 </head>
-<body style="margin: 0; overflow: hidden;">
-    <!-- Pantalla de carga -->
+<body>
     <div class="arjs-loader">
-        <div>Cargando WebAR...<br>Por favor, permite el acceso a la cámara</div>
+        <div class="loading-text">
+            <p>🔄 Experiencia de Realidad Aumentada</p>
+            <p>Por favor, apunta tu cámara al marcador "Corvaglia"</p>
+        </div>
+        <button class="start-button" id="startButton">INICIAR EXPERIENCIA</button>
+        <div class="ios-warning" id="iosWarning">
+            En iOS: Mantén presionado el botón y selecciona "Reproducir"
+        </div>
+        <div class="error-message" id="errorMessage"></div>
     </div>
 
     <a-scene 
         vr-mode-ui="enabled: false"
-        renderer="logarithmicDepthBuffer: true;"
-        arjs="trackingMethod: best; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true; precision: medium;"
+        arjs="trackingMethod: best; debugUIEnabled: false; sourceType: webcam;"
     >
-        <!-- Marcador NFT -->
         <a-nft 
+            id="corvaglia-marker"
             type="nft" 
             url="assets/corvaglia"
             smooth="true"
@@ -46,27 +99,129 @@
             smoothTolerance="0.01"
             smoothThreshold="5"
         >
-            <!-- Video -->
             <a-video
+                id="ar-video"
                 src="assets/video1.mp4"
                 position="0 0.5 0"
                 width="1.6"
                 height="0.9"
                 rotation="-90 0 0"
-                autoplay="true"
+                autoplay="false"
                 loop="true"
                 transparent="true"
+                playsinline
+                webkit-playsinline
             ></a-video>
         </a-nft>
         
-        <!-- Cámara AR -->
         <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-        // Ocultar loader cuando la escena esté cargada
-        document.querySelector('a-scene').addEventListener('loaded', function() {
-            document.querySelector('.arjs-loader').style.display = 'none';
+        // Elementos DOM
+        const loader = document.querySelector('.arjs-loader');
+        const scene = document.querySelector('a-scene');
+        const videoElement = document.querySelector('#ar-video');
+        const startButton = document.querySelector('#startButton');
+        const errorMessage = document.querySelector('#errorMessage');
+        const iosWarning = document.querySelector('#iosWarning');
+        
+        // Detectar iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        // Mostrar advertencia para iOS
+        if (isIOS) {
+            iosWarning.style.display = 'block';
+        } else {
+            iosWarning.style.display = 'none';
+        }
+        
+        // Estado de la experiencia
+        let sceneInitialized = false;
+        let markerFound = false;
+        
+        // 1. Iniciar experiencia con interacción del usuario
+        startButton.addEventListener('click', async () => {
+            try {
+                // Iniciar escena AR
+                if (!sceneInitialized) {
+                    await initializeARScene();
+                    sceneInitialized = true;
+                }
+                
+                // Reproducir video
+                await playVideo();
+                
+                // Ocultar loader
+                loader.style.display = 'none';
+                scene.style.display = 'block';
+                
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+                console.error('Error inicializando AR:', error);
+            }
+        });
+        
+        // 2. Inicializar escena AR
+        async function initializeARScene() {
+            return new Promise((resolve) => {
+                scene.addEventListener('loaded', () => {
+                    console.log('Escena AR cargada');
+                    
+                    // Configurar eventos de marcador
+                    scene.addEventListener('markerFound', () => {
+                        markerFound = true;
+                        console.log('Marcador detectado');
+                    });
+                    
+                    scene.addEventListener('markerLost', () => {
+                        markerFound = false;
+                        console.log('Marcador perdido');
+                    });
+                    
+                    resolve();
+                });
+            });
+        }
+        
+        // 3. Reproducir video
+        async function playVideo() {
+            return new Promise(async (resolve, reject) => {
+                // Esperar a que el video esté listo
+                videoElement.addEventListener('loadeddata', async () => {
+                    try {
+                        // Intentar reproducción
+                        await videoElement.play();
+                        console.log('Video iniciado correctamente');
+                        resolve();
+                    } catch (error) {
+                        reject(new Error('Error al reproducir video: ' + error.message));
+                    }
+                }, { once: true });
+                
+                // Forzar carga si ya está listo
+                if (videoElement.readyState >= 3) {
+                    try {
+                        await videoElement.play();
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                }
+            });
+        }
+        
+        // 4. Manejar errores
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            startButton.textContent = 'REINTENTAR';
+            startButton.style.background = '#f44336';
+        }
+        
+        // 5. Manejar cambios de orientación
+        window.addEventListener('orientationchange', () => {
+            window.location.reload();
         });
     </script>
 </body>
